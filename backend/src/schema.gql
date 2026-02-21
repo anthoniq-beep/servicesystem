@@ -1,0 +1,169 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input CreateDepartmentInput {
+  managerId: Int
+  name: String!
+  parentId: Int
+}
+
+input CreatePaymentInput {
+  amount: Float!
+  contractId: Int!
+  paidAt: String!
+  recorderId: Int!
+}
+
+input CreateSalesTargetInput {
+  amount: Float!
+  month: String!
+  userId: Int!
+}
+
+input CreateUserInput {
+  departmentId: Int
+  name: String!
+  phone: String!
+  role: Role!
+  status: EmployeeStatus!
+  supervisorId: Int
+  username: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Department {
+  children: [Department!]
+  createdAt: DateTime!
+  id: Int!
+  manager: User
+  managerId: Int
+  name: String!
+  parent: Department
+  parentId: Int
+  updatedAt: DateTime!
+  users: [User!]
+}
+
+enum EmployeeStatus {
+  PROBATION
+  REGULAR
+  TERMINATED
+}
+
+input LoginInput {
+  password: String!
+  username: String!
+}
+
+type LoginResponse {
+  accessToken: String!
+  user: User!
+}
+
+type Mutation {
+  approvePayment(id: Int!): Payment!
+  createDepartment(createDepartmentInput: CreateDepartmentInput!): Department!
+  createPayment(createPaymentInput: CreatePaymentInput!): Payment!
+  createSalesTarget(createSalesTargetInput: CreateSalesTargetInput!): SalesTarget!
+  createUser(createUserInput: CreateUserInput!): User!
+  login(loginInput: LoginInput!): LoginResponse!
+  removeDepartment(id: Int!): Department!
+  removePayment(id: Int!): Payment!
+  removeSalesTarget(id: Int!): SalesTarget!
+  removeUser(id: Int!): User!
+  updateDepartment(updateDepartmentInput: UpdateDepartmentInput!): Department!
+  updatePayment(updatePaymentInput: UpdatePaymentInput!): Payment!
+  updateSalesTarget(updateSalesTargetInput: UpdateSalesTargetInput!): SalesTarget!
+  updateUser(updateUserInput: UpdateUserInput!): User!
+}
+
+type Payment {
+  amount: Float!
+  approvedAt: DateTime
+  contractId: Int!
+  createdAt: DateTime!
+  id: Int!
+  isApproved: Boolean!
+  paidAt: DateTime!
+  recorderId: Int!
+  updatedAt: DateTime!
+}
+
+type Query {
+  department(id: Int!): Department!
+  departments: [Department!]!
+  payment(id: Int!): Payment!
+  payments: [Payment!]!
+  salesTarget(id: Int!): SalesTarget!
+  salesTargets(month: String): [SalesTarget!]!
+  user(id: Int!): User!
+  users: [User!]!
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+  FINANCE
+  HR
+  MANAGER
+  SUPERVISOR
+}
+
+type SalesTarget {
+  amount: Float!
+  createdAt: DateTime!
+  id: Int!
+  month: String!
+  updatedAt: DateTime!
+  user: User!
+  userId: Int!
+}
+
+input UpdateDepartmentInput {
+  id: Int!
+  managerId: Int
+  name: String
+  parentId: Int
+}
+
+input UpdatePaymentInput {
+  amount: Float
+  contractId: Int
+  id: Int!
+  paidAt: String
+  recorderId: Int
+}
+
+input UpdateSalesTargetInput {
+  amount: Float
+  id: Int!
+  month: String
+  userId: Int
+}
+
+input UpdateUserInput {
+  departmentId: Int
+  id: Int!
+  name: String
+  phone: String
+  role: Role
+  status: EmployeeStatus
+  supervisorId: Int
+  username: String
+}
+
+type User {
+  departmentId: Int
+  id: Int!
+  name: String!
+  phone: String!
+  role: Role!
+  status: EmployeeStatus!
+  supervisorId: Int
+  username: String!
+}

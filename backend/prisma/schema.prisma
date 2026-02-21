@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------
+// 1. 组织架构与员工 (Organization & Employee)
+// ------------------------------------------------------
+
+enum Role {
+  ADMIN       // 超级管理员
+  MANAGER     // 部门主管
+  SUPERVISOR  // 销售经理
+  EMPLOYEE    // 销售专员/员工
+  FINANCE     // 财务
+  HR          // 人事
+}
+
+enum EmployeeStatus {
+  PROBATION   // 试用期
+  REGULAR     // 正式
+  TERMINATED  // 离职
+}
+
+model Department {
+  id          Int       @id @default(autoincrement())
+  name        String
+  parentId    Int?
+  parent      Department? @relation("DeptHierarchy", fields: [parentId], references: [id])
+  children    Department[] @relation("DeptHierarchy")
+  
+  managerId   Int?      // 部门主管ID
+  manager     User?     @relation("DeptManager", fields: [managerId], references: [id])
+
+  users       User[]    @relation("UserDepartment")
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model User {
+  id          Int            @id @default(autoincrement())
+  username    String         @unique // 工号
+  password    String
+  name        String
+  phone       String         @unique
+  role        Role
+  status      EmployeeStatus @default(PROBATION)
+  joinedAt    DateTime       @default(now())
+  
+  departmentId Int?
+  department   Department? @relation("UserDepartment", fields: [departmentId], references: [id])
+  
+  // 汇报关系
+  supervisorId Int?
+  supervisor   User?   @relation("UserHierarchy", fields: [supervisorId], references: [id])
+  subordinates User[]  @relation("UserHierarchy")
+
+  // 管理的部门
+  managedDept  Department[] @relation("DeptManager")
+
+  // 业务关联
+  customers       Customer[]       @relation("CustomerOwner")
+  saleLogs        SaleLog[]        @relation("LogActor")
+  commissions     CommissionRecord[]
+  createdPayments Payment[]        @relation("PaymentRecorder")
+  salesTargets    SalesTarget[]    // 业绩指标
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 业绩指标 (KPI)
+model SalesTarget {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  
+  month     String   // YYYY-MM
+  amount    Decimal  @db.Decimal(10, 2) // 目标金额
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month]) // 每个用户每月只能有一个目标
+}
+
+// ------------------------------------------------------
+// 2. 客户管理 (CRM)
+// ------------------------------------------------------
+
+enum CustomerStatus {
+  LEAD      // 线索
+  CHANCE    // 客资
+  CALL      // 约访
+  TOUCH     // 接待
+  PENDING   // 考虑
+  DEAL      // 成交
+  CHURNED   // 流失
+}
+
+enum LeadSourceType {
+  COMPANY     // 公司渠道
+  INDIVIDUAL  // 个人渠道
+}
+
+model LeadSource {
+  id        Int            @id @default(autoincrement())
+  name      String
+  type      LeadSourceType
+  points    Decimal        @default(0) @db.Decimal(5, 2) // 渠道点数
+  cost      Decimal        @default(0) @db.Decimal(10, 2) // 渠道费用
+  isActive  Boolean        @default(true)
+  customers Customer[]
+  
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Customer {
+  id          Int            @id @default(autoincrement())
+  name        String
+  phone       String         @unique // 查重
+  companyName String?        // 查重
+  
+  status      CustomerStatus @default(LEAD)
+  
+  sourceId    Int
+  source      LeadSource     @relation(fields: [sourceId], references: [id])
+  
+  ownerId     Int?           // 当前负责人 (如果在公海则为空)
+  owner       User?          @relation("CustomerOwner", fields: [ownerId], references: [id])
+  
+  isInPool    Boolean        @default(false)
+  poolReason  String?        // 进入公海原因 (未跟进/未成交)
+  
+  lastContactAt DateTime     @default(now()) // 最后跟进时间
+  dealAt        DateTime?    // 成交时间
+
+  saleLogs    SaleLog[]
+  contracts   Contract[]
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+// ------------------------------------------------------
+// 3. 销售过程与提成 (Process & Commission)
+// ------------------------------------------------------
+
+enum SaleStage {
+  CHANCE    // 客资获取
+  CALL      // 约访成功
+  TOUCH     // 接待完成
+  DEAL      // 最终成交
+}
+
+// 记录销售过程中的关键动作，用于计算提成
+model SaleLog {
+  id          Int       @id @default(autoincrement())
+  customerId  Int
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  actorId     Int       // 执行人 (如约访人、接待人)
+  actor       User      @relation("LogActor", fields: [actorId], references: [id])
+  
+  stage       SaleStage
+  occurredAt  DateTime  @default(now())
+  
+  isEffective Boolean   @default(true) // 是否有效 (例如约访是否到店)
+  note        String?
+
+  commissionRecords CommissionRecord[]
+  
+  createdAt   DateTime  @default(now())
+}
+
+model Contract {
+  id          Int       @id @default(autoincrement())
+  customerId  Int
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  amount      Decimal   @db.Decimal(10, 2)
+  signedAt    DateTime
+  
+  payments    Payment[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Payment {
+  id          Int       @id @default(autoincrement())
+  contractId  Int
+  contract    Contract  @relation(fields: [contractId], references: [id])
+  
+  amount      Decimal   @db.Decimal(10, 2)
+  paidAt      DateTime
+  
+  recorderId  Int       // 录入人 (部门主管)
+  recorder    User      @relation("PaymentRecorder", fields: [recorderId], references: [id])
+  
+  isApproved  Boolean   @default(false) // 管理员复核
+  approvedAt  DateTime?
+  
+  commissionRecords CommissionRecord[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model CommissionRecord {
+  id          Int       @id @default(autoincrement())
+  
+  userId      Int       // 受益人
+  user        User      @relation(fields: [userId], references: [id])
+  
+  // 关联来源
+  saleLogId   Int?      // 关联的销售动作 (用于确认是哪个阶段的提成)
+  saleLog     SaleLog?  @relation(fields: [saleLogId], references: [id])
+  
+  paymentId   Int       // 关联的回款 (提成基于回款)
+  payment     Payment   @relation(fields: [paymentId], references: [id])
+  
+  stage       SaleStage // 提成阶段 (Chance/Call/Touch/Deal)
+  
+  baseAmount  Decimal   @db.Decimal(10, 2) // 计算基数 (通常是回款金额)
+  rate        Decimal   @db.Decimal(5, 4)  // 提成比例 (e.g., 0.0200 = 2%)
+  amount      Decimal   @db.Decimal(10, 2) // 提成金额
+  
+  quarter     String    // 季度标识 e.g., "2023-Q1"
+  status      String    // Pending, Paid
+  note        String?   // 备注 (e.g. "成交提成(Admin)")
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

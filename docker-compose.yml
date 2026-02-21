@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: service-system-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: your_secure_password # 请修改此密码
+      MYSQL_DATABASE: servicesystem
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+
+  # 后端 API 服务
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: service-system-api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # 连接到 mysql 容器
+      DATABASE_URL: mysql://root:your_secure_password@mysql:3306/servicesystem
+      JWT_SECRET: replace_this_with_a_long_secret_string
+      # 允许 Vercel 前端的跨域访问
+      FRONTEND_URL: https://your-project-name.vercel.app 
+      PORT: 3000
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
