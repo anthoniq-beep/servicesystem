@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ------------------------------------------------------
@@ -175,7 +176,9 @@ model SaleLog {
   occurredAt  DateTime  @default(now())
   
   isEffective Boolean   @default(true) // 是否有效 (例如约访是否到店)
+  // Use standard PostgreSQL text or keep default String
   note        String?
+  // In PostgreSQL, TEXT is mapped to String by default
 
   commissionRecords CommissionRecord[]
   
